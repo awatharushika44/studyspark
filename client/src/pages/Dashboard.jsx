@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import {
-  Brain, Zap, Trophy, Flame, Clock, BookOpen,
+  Brain, Zap, Flame, Clock, BookOpen,
   TrendingUp, CheckCircle, Plus, LogOut, Sparkles,
   Target, Calendar, BarChart2, MessageSquare, X
 } from 'lucide-react'
@@ -11,6 +11,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, RadialBarChart, RadialBar
 } from 'recharts'
+import { useSubjects } from '../hooks/useSubjects'
 
 const studyData = [
   { day: 'Mon', hours: 0 }, { day: 'Tue', hours: 0 },
@@ -40,61 +41,109 @@ const navItems = [
   { icon: TrendingUp, label: 'Analytics', tab: 'analytics', path: '/analytics' },
 ]
 
-const DEFAULT_SUBJECTS = ['Mathematics', 'Physics', 'Chemistry', 'English']
+const todayStr = () => new Date().toISOString().split('T')[0]
 
 export default function Dashboard() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('overview')
 
-  // Dynamic tasks
+  // Tasks — persisted per user
   const [taskList, setTaskList] = useState([])
   const [showAddTask, setShowAddTask] = useState(false)
-  const [newTask, setNewTask] = useState({ title: '', subject: 'Mathematics', priority: 'medium' })
+  const [newTask, setNewTask] = useState({ title: '', subject: '', priority: 'medium' })
 
-  // Dynamic subjects
-  const [subjects, setSubjects] = useState(() => {
-    const saved = localStorage.getItem('dashboardSubjects')
-    return saved ? JSON.parse(saved) : DEFAULT_SUBJECTS
-  })
+  // Subjects from MongoDB via hook
+  const { subjects, addSubject, removeSubject } = useSubjects()
   const [showAddSubject, setShowAddSubject] = useState(false)
   const [newSubject, setNewSubject] = useState('')
 
+  // Load tasks on mount
+  useEffect(() => {
+    if (user?._id) {
+      const saved = localStorage.getItem(`tasks_${user._id}`)
+      if (saved) setTaskList(JSON.parse(saved))
+    }
+  }, [user?._id])
+
+  // Update default subject when subjects load
+  useEffect(() => {
+    if (subjects.length > 0 && !newTask.subject) {
+      setNewTask(p => ({ ...p, subject: subjects[0] }))
+    }
+  }, [subjects])
+
+  // Central save function — updates state + localStorage + calendar sync
+  const saveTasks = (updated) => {
+    setTaskList(updated)
+    if (user?._id) {
+      localStorage.setItem(`tasks_${user._id}`, JSON.stringify(updated))
+      syncTasksToCalendar(updated)
+    }
+  }
+
+  // Push tasks into the calendar's event store, keyed by due date
+  const syncTasksToCalendar = (tasks) => {
+    if (!user?._id) return
+    const saved = localStorage.getItem(`calendar_${user._id}`)
+    const base = saved ? JSON.parse(saved) : {}
+
+    // strip out old dashboard-synced task events first
+    Object.keys(base).forEach(dateKey => {
+      base[dateKey] = base[dateKey].filter(e => !e.fromDashboard)
+      if (base[dateKey].length === 0) delete base[dateKey]
+    })
+
+    // add current tasks back in under their due date
+    tasks.forEach(task => {
+      const dateKey = task.due
+      if (!dateKey) return
+      if (!base[dateKey]) base[dateKey] = []
+      base[dateKey].push({
+        id: `task_${task.id}`,
+        title: task.done ? `✓ ${task.title}` : task.title,
+        type: 'task',
+        fromDashboard: true
+      })
+    })
+
+    localStorage.setItem(`calendar_${user._id}`, JSON.stringify(base))
+  }
+
   const toggleTask = (id) => {
-    setTaskList(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t))
+    const updated = taskList.map(t => t.id === id ? { ...t, done: !t.done } : t)
+    saveTasks(updated)
   }
 
   const deleteTask = (id) => {
-    setTaskList(prev => prev.filter(t => t.id !== id))
+    const updated = taskList.filter(t => t.id !== id)
+    saveTasks(updated)
   }
 
   const addTask = () => {
     if (!newTask.title.trim()) return
-    setTaskList(prev => [...prev, {
+    const updated = [...taskList, {
       id: Date.now(),
       title: newTask.title,
-      subject: newTask.subject,
+      subject: newTask.subject || subjects[0] || 'General',
       priority: newTask.priority,
-      due: 'Today',
+      due: todayStr(),
       done: false,
-    }])
-    setNewTask({ title: '', subject: subjects[0] || 'Mathematics', priority: 'medium' })
+    }]
+    saveTasks(updated)
+    setNewTask({ title: '', subject: subjects[0] || '', priority: 'medium' })
     setShowAddTask(false)
   }
 
-  const addSubject = () => {
+  const handleAddSubject = async () => {
     if (!newSubject.trim()) return
-    const updated = [...subjects, newSubject.trim()]
-    setSubjects(updated)
-    localStorage.setItem('dashboardSubjects', JSON.stringify(updated))
+    await addSubject(newSubject.trim())
     setNewSubject('')
     setShowAddSubject(false)
   }
 
-  const removeSubject = (s) => {
-    const updated = subjects.filter(sub => sub !== s)
-    setSubjects(updated)
-    localStorage.setItem('dashboardSubjects', JSON.stringify(updated))
+  const handleRemoveSubject = async (s) => {
+    await removeSubject(s)
   }
 
   const completedTasks = taskList.filter(t => t.done).length
@@ -257,7 +306,6 @@ export default function Dashboard() {
               </button>
             </div>
 
-            {/* Add task form */}
             <AnimatePresence>
               {showAddTask && (
                 <motion.div
@@ -281,6 +329,7 @@ export default function Dashboard() {
                         onChange={e => setNewTask(p => ({ ...p, subject: e.target.value }))}
                         className="bg-white/5 border border-white/10 rounded-lg px-2 py-2 text-xs text-white focus:outline-none"
                       >
+                        {subjects.length === 0 && <option value="">Add subjects first</option>}
                         {subjects.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                       <select
@@ -306,7 +355,6 @@ export default function Dashboard() {
               )}
             </AnimatePresence>
 
-            {/* Empty state */}
             {taskList.length === 0 && !showAddTask && (
               <div className="text-center py-8">
                 <CheckCircle size={32} className="text-gray-700 mx-auto mb-2" />
@@ -332,7 +380,9 @@ export default function Dashboard() {
                     <p className={`text-sm font-medium truncate ${task.done ? 'line-through text-gray-500' : ''}`}>
                       {task.title}
                     </p>
-                    <p className="text-xs text-gray-500">{task.subject} • Due {task.due}</p>
+                    <p className="text-xs text-gray-500">
+                      {task.subject} • Due {task.due === todayStr() ? 'Today' : task.due}
+                    </p>
                   </div>
                   <span className={`text-xs px-2 py-0.5 rounded-lg font-medium ${priorityColors[task.priority]}`}>
                     {task.priority}
@@ -348,7 +398,7 @@ export default function Dashboard() {
             </div>
           </motion.div>
 
-          {/* Subject Progress */}
+          {/* My Subjects */}
           <motion.div custom={7} initial="hidden" animate="visible" variants={fadeUp}
             className="bg-white/[0.03] border border-white/5 rounded-2xl p-6"
           >
@@ -362,7 +412,6 @@ export default function Dashboard() {
               </button>
             </div>
 
-            {/* Add subject form */}
             <AnimatePresence>
               {showAddSubject && (
                 <motion.div
@@ -377,10 +426,13 @@ export default function Dashboard() {
                       placeholder="e.g. Biology, Economics..."
                       value={newSubject}
                       onChange={e => setNewSubject(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && addSubject()}
+                      onKeyDown={e => e.key === 'Enter' && handleAddSubject()}
                       className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/50"
                     />
-                    <button onClick={addSubject} className="px-4 py-2 bg-blue-500 hover:bg-blue-400 rounded-xl text-sm font-medium transition-all">
+                    <button
+                      onClick={handleAddSubject}
+                      className="px-4 py-2 bg-blue-500 hover:bg-blue-400 rounded-xl text-sm font-medium transition-all"
+                    >
                       Add
                     </button>
                   </div>
@@ -388,7 +440,14 @@ export default function Dashboard() {
               )}
             </AnimatePresence>
 
-            {/* Subjects list */}
+            {subjects.length === 0 && (
+              <div className="text-center py-8">
+                <BookOpen size={32} className="text-gray-700 mx-auto mb-2" />
+                <p className="text-sm text-gray-500">No subjects added</p>
+                <p className="text-xs text-gray-600 mt-1">Click "Add" to add your subjects</p>
+              </div>
+            )}
+
             <div className="space-y-3">
               {subjects.map((subject, i) => {
                 const colors = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4']
@@ -400,7 +459,7 @@ export default function Dashboard() {
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-500">Active</span>
                         <button
-                          onClick={() => removeSubject(subject)}
+                          onClick={() => handleRemoveSubject(subject)}
                           className="text-gray-600 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
                         >
                           <X size={12} />
@@ -408,20 +467,12 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full w-0" style={{ backgroundColor: color }} />
+                      <div className="h-full rounded-full w-0 transition-all" style={{ backgroundColor: color }} />
                     </div>
                   </div>
                 )
               })}
             </div>
-
-            {subjects.length === 0 && (
-              <div className="text-center py-8">
-                <BookOpen size={32} className="text-gray-700 mx-auto mb-2" />
-                <p className="text-sm text-gray-500">No subjects added</p>
-                <p className="text-xs text-gray-600 mt-1">Click "Add" to add your subjects</p>
-              </div>
-            )}
           </motion.div>
         </div>
 

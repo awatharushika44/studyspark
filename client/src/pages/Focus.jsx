@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { focusAPI } from '../services/api'
+import { useSubjects } from '../hooks/useSubjects'
 import {
   ArrowLeft, Play, Pause, SkipForward,
   Zap, Flame, Clock, RotateCcw, CheckCircle, Plus, X
@@ -14,13 +15,13 @@ const MODES = [
   { label: 'Long Break', minutes: 15, color: '#8b5cf6', bg: 'bg-purple-500/10', text: 'text-purple-400' },
 ]
 
-const DEFAULT_SUBJECTS = ['Mathematics', 'Physics', 'Chemistry', 'English', 'Biology', 'History', 'Other']
-
 export default function Focus() {
   const navigate = useNavigate()
   const { user, setUser } = useAuth()
+  const { subjects, addSubject, removeSubject } = useSubjects()
 
   const [modeIndex, setModeIndex] = useState(0)
+  const [subject, setSubject] = useState('')
   const [secondsLeft, setSecondsLeft] = useState(MODES[0].minutes * 60)
   const [running, setRunning] = useState(false)
   const [sessionsToday, setSessionsToday] = useState(0)
@@ -28,17 +29,6 @@ export default function Focus() {
   const [xpToday, setXpToday] = useState(0)
   const [showComplete, setShowComplete] = useState(false)
   const [lastXp, setLastXp] = useState(0)
-
-  // Custom subjects
-  const [subjects, setSubjects] = useState(() => {
-    const saved = localStorage.getItem('userSubjects')
-    return saved ? JSON.parse(saved) : DEFAULT_SUBJECTS
-  })
-  const [subject, setSubject] = useState(() => {
-    const saved = localStorage.getItem('userSubjects')
-    const list = saved ? JSON.parse(saved) : DEFAULT_SUBJECTS
-    return list[0]
-  })
   const [newSubject, setNewSubject] = useState('')
   const [showAddSubject, setShowAddSubject] = useState(false)
 
@@ -57,22 +47,26 @@ export default function Focus() {
     return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
   }
 
-  const addSubject = () => {
+  // Set initial subject when subjects load
+  useEffect(() => {
+    if (subjects.length > 0 && !subject) {
+      setSubject(subjects[0])
+    }
+  }, [subjects])
+
+  const handleAddSubject = async () => {
     if (!newSubject.trim()) return
-    const updated = [...subjects, newSubject.trim()]
-    setSubjects(updated)
-    localStorage.setItem('userSubjects', JSON.stringify(updated))
+    await addSubject(newSubject.trim())
     setSubject(newSubject.trim())
     setNewSubject('')
     setShowAddSubject(false)
   }
 
-  const removeSubject = (s) => {
-    if (subjects.length <= 1) return
-    const updated = subjects.filter(sub => sub !== s)
-    setSubjects(updated)
-    localStorage.setItem('userSubjects', JSON.stringify(updated))
-    if (subject === s) setSubject(updated[0])
+  const handleRemoveSubject = async (s) => {
+    await removeSubject(s)
+    if (subject === s && subjects.length > 1) {
+      setSubject(subjects.filter(sub => sub !== s)[0])
+    }
   }
 
   const handleComplete = useCallback(async (studiedMinutes) => {
@@ -207,7 +201,6 @@ export default function Focus() {
             </button>
           </div>
 
-          {/* Add subject input */}
           <AnimatePresence>
             {showAddSubject && (
               <motion.div
@@ -222,11 +215,11 @@ export default function Focus() {
                     placeholder="e.g. Economics, Literature..."
                     value={newSubject}
                     onChange={e => setNewSubject(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && addSubject()}
+                    onKeyDown={e => e.key === 'Enter' && handleAddSubject()}
                     className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/50 transition-colors"
                   />
                   <button
-                    onClick={addSubject}
+                    onClick={handleAddSubject}
                     className="px-4 py-2 bg-blue-500 hover:bg-blue-400 rounded-xl text-sm font-medium transition-all"
                   >
                     Add
@@ -242,7 +235,12 @@ export default function Focus() {
             )}
           </AnimatePresence>
 
-          {/* Subject pills */}
+          {subjects.length === 0 && (
+            <p className="text-xs text-gray-500 mb-3">
+              No subjects yet — add one above or go to Dashboard → My Subjects
+            </p>
+          )}
+
           <div className="flex flex-wrap gap-2">
             {subjects.map(s => (
               <div key={s} className="flex items-center gap-0.5 group">
@@ -256,9 +254,9 @@ export default function Focus() {
                 >
                   {s}
                 </button>
-                {s !== 'Other' && subjects.length > 1 && (
+                {subjects.length > 1 && (
                   <button
-                    onClick={() => removeSubject(s)}
+                    onClick={() => handleRemoveSubject(s)}
                     className="w-4 h-4 rounded-full bg-white/10 hover:bg-red-500/20 text-gray-600 hover:text-red-400 transition-all opacity-0 group-hover:opacity-100 flex items-center justify-center text-xs"
                   >
                     ×
@@ -273,12 +271,7 @@ export default function Focus() {
         <div className="flex flex-col items-center mb-8">
           <div className="relative mb-6" style={{ width: 220, height: 220 }}>
             <svg width="220" height="220" style={{ transform: 'rotate(-90deg)' }}>
-              <circle
-                cx="110" cy="110" r={radius}
-                fill="none"
-                stroke="rgba(255,255,255,0.05)"
-                strokeWidth="8"
-              />
+              <circle cx="110" cy="110" r={radius} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="8" />
               <circle
                 cx="110" cy="110" r={radius}
                 fill="none"
@@ -298,15 +291,10 @@ export default function Focus() {
             </div>
           </div>
 
-          {/* Controls */}
           <div className="flex items-center gap-3">
-            <button
-              onClick={reset}
-              className="w-11 h-11 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-all"
-            >
+            <button onClick={reset} className="w-11 h-11 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-all">
               <RotateCcw size={18} />
             </button>
-
             <button
               onClick={() => setRunning(r => !r)}
               className="w-16 h-16 rounded-2xl flex items-center justify-center text-white font-semibold transition-all"
@@ -314,7 +302,6 @@ export default function Focus() {
             >
               {running ? <Pause size={26} /> : <Play size={26} className="ml-1" />}
             </button>
-
             <button
               onClick={skip}
               disabled={!running && secondsLeft === totalSeconds}
@@ -333,7 +320,7 @@ export default function Focus() {
           </p>
         </div>
 
-        {/* Stats row */}
+        {/* Stats */}
         <div className="grid grid-cols-3 gap-4 mb-6">
           {[
             { icon: CheckCircle, label: 'Sessions', value: sessionsToday, color: 'text-blue-400', bg: 'bg-blue-500/10' },
@@ -350,7 +337,6 @@ export default function Focus() {
           ))}
         </div>
 
-        {/* Tip */}
         <div className="bg-white/[0.02] border border-white/5 rounded-xl p-4 text-center">
           <p className="text-xs text-gray-500">
             {modeIndex === 0
@@ -382,23 +368,15 @@ export default function Focus() {
               </div>
               <h2 className="text-xl font-bold mb-1">Session Complete! 🎉</h2>
               <p className="text-gray-400 text-sm mb-4">{subject} · {minutesToday} min studied today</p>
-
               <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3 mb-6">
                 <p className="text-yellow-400 font-bold text-2xl">+{lastXp} XP</p>
                 <p className="text-xs text-gray-500 mt-0.5">Total today: +{xpToday} XP</p>
               </div>
-
               <div className="flex gap-3">
-                <button
-                  onClick={startBreak}
-                  className="flex-1 py-2.5 rounded-xl border border-white/10 hover:bg-white/5 text-sm text-gray-300 transition-all"
-                >
+                <button onClick={startBreak} className="flex-1 py-2.5 rounded-xl border border-white/10 hover:bg-white/5 text-sm text-gray-300 transition-all">
                   Take a Break
                 </button>
-                <button
-                  onClick={startNext}
-                  className="flex-1 py-2.5 rounded-xl bg-blue-500 hover:bg-blue-400 text-sm font-semibold transition-all"
-                >
+                <button onClick={startNext} className="flex-1 py-2.5 rounded-xl bg-blue-500 hover:bg-blue-400 text-sm font-semibold transition-all">
                   Next Session
                 </button>
               </div>

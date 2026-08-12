@@ -32,4 +32,9 @@ export const analyticsAPI = {
   getSummary: () => api.get('/api/analytics/summary'),
 }
 
+export const subjectsAPI = {
+  get: () => api.get('/api/auth/subjects'),
+  update: (subjects) => api.put('/api/auth/subjects', { subjects }),
+}
+
 export default api

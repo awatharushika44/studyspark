@@ -81,5 +81,29 @@ router.post('/login', async (req, res) => {
 router.get('/me', authMiddleware, async (req, res) => {
   res.json({ user: req.user })
 })
+// GET /api/auth/subjects
+router.get('/subjects', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id)
+    res.json({ subjects: user.subjects || [] })
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to get subjects' })
+  }
+})
+
+// PUT /api/auth/subjects
+router.put('/subjects', authMiddleware, async (req, res) => {
+  try {
+    const { subjects } = req.body
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { subjects },
+      { new: true }
+    )
+    res.json({ subjects: user.subjects })
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to update subjects' })
+  }
+})
 
 module.exports = router

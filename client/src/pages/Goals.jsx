@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import {
   ArrowLeft, Target, Trophy, Plus, X,
-  CheckCircle, Lock, Flame, Zap, Brain,
-  BookOpen, Clock, Star, TrendingUp
+  CheckCircle, Lock, Flame, Zap,
+  BookOpen, Clock, Star
 } from 'lucide-react'
 
 const ACHIEVEMENTS = [
@@ -16,7 +16,7 @@ const ACHIEVEMENTS = [
   { id: 5, icon: '📚', title: 'Bookworm', desc: 'Study 50 hours total', xp: 700, condition: () => false },
   { id: 6, icon: '🏆', title: 'Champion', desc: 'Reach Level 10', xp: 1000, condition: (user) => user?.level >= 10 },
   { id: 7, icon: '💪', title: 'Consistent', desc: 'Study 30 days in a row', xp: 1500, condition: (user) => user?.streak >= 30 },
-  { id: 8, icon: '🚀', title: 'Rocket Start', desc: 'Complete your first focus session', xp: 100, condition: () => true },
+  { id: 8, icon: '🚀', title: 'Rocket Start', desc: 'Complete your first focus session', xp: 100, condition: (user) => (user?.xp || 0) > 0 },
   { id: 9, icon: '✨', title: 'Early Bird', desc: 'Start a session before 8am', xp: 200, condition: () => false },
 ]
 
@@ -27,43 +27,52 @@ const GOAL_CATEGORIES = [
   { label: 'Streak', icon: Flame, color: 'text-orange-400', bg: 'bg-orange-500/10' },
 ]
 
-const initialGoals = [
-  { id: 1, title: 'Study 4 hours today', category: 'Study Hours', target: 4, current: 2.5, unit: 'hrs', color: '#3b82f6' },
-  { id: 2, title: 'Complete 5 focus sessions this week', category: 'Sessions', target: 5, current: 3, unit: 'sessions', color: '#8b5cf6' },
-  { id: 3, title: 'Maintain 7 day streak', category: 'Streak', target: 7, current: 4, unit: 'days', color: '#f59e0b' },
-  { id: 4, title: 'Cover all Math chapters', category: 'Subjects', target: 8, current: 5, unit: 'chapters', color: '#10b981' },
-]
+const GOAL_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4']
 
 export default function Goals() {
   const navigate = useNavigate()
   const { user } = useAuth()
+
+  // Load goals from localStorage per user — no defaults
+  const [goals, setGoals] = useState(() => {
+    if (!user?._id) return []
+    const saved = localStorage.getItem(`goals_${user._id}`)
+    return saved ? JSON.parse(saved) : []
+  })
+
   const [activeTab, setActiveTab] = useState('goals')
-  const [goals, setGoals] = useState(initialGoals)
   const [showAddGoal, setShowAddGoal] = useState(false)
   const [newGoal, setNewGoal] = useState({
     title: '', category: 'Study Hours', target: 10, current: 0, unit: 'hrs'
   })
+
+  const saveGoals = (updated) => {
+    setGoals(updated)
+    localStorage.setItem(`goals_${user._id}`, JSON.stringify(updated))
+  }
 
   const unlockedCount = ACHIEVEMENTS.filter(a => a.condition(user)).length
   const completedGoals = goals.filter(g => g.current >= g.target).length
 
   const addGoal = () => {
     if (!newGoal.title.trim()) return
-    const colors = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4']
-    setGoals(prev => [...prev, {
+    const updated = [...goals, {
       id: Date.now(),
       ...newGoal,
-      color: colors[prev.length % colors.length]
-    }])
+      color: GOAL_COLORS[goals.length % GOAL_COLORS.length]
+    }]
+    saveGoals(updated)
     setNewGoal({ title: '', category: 'Study Hours', target: 10, current: 0, unit: 'hrs' })
     setShowAddGoal(false)
   }
 
-  const deleteGoal = (id) => setGoals(prev => prev.filter(g => g.id !== id))
+  const deleteGoal = (id) => saveGoals(goals.filter(g => g.id !== id))
 
   const updateProgress = (id, delta) => {
-    setGoals(prev => prev.map(g =>
-      g.id === id ? { ...g, current: Math.max(0, Math.min(g.target, g.current + delta)) } : g
+    saveGoals(goals.map(g =>
+      g.id === id
+        ? { ...g, current: Math.max(0, Math.min(g.target, g.current + delta)) }
+        : g
     ))
   }
 
@@ -111,7 +120,7 @@ export default function Goals() {
             >
               <tab.icon size={16} />
               {tab.label}
-              {tab.id === 'goals' && (
+              {tab.id === 'goals' && goals.length > 0 && (
                 <span className="text-xs bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded-md">
                   {completedGoals}/{goals.length}
                 </span>
@@ -131,23 +140,25 @@ export default function Goals() {
           {activeTab === 'goals' && (
             <motion.div key="goals" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
 
-              {/* Stats row */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                {GOAL_CATEGORIES.map(cat => (
-                  <div key={cat.label} className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
-                    <div className={`w-8 h-8 rounded-lg ${cat.bg} flex items-center justify-center mb-2`}>
-                      <cat.icon size={16} className={cat.color} />
+              {/* Category stats — only show if goals exist */}
+              {goals.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                  {GOAL_CATEGORIES.map(cat => (
+                    <div key={cat.label} className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
+                      <div className={`w-8 h-8 rounded-lg ${cat.bg} flex items-center justify-center mb-2`}>
+                        <cat.icon size={16} className={cat.color} />
+                      </div>
+                      <p className="text-lg font-bold">
+                        {goals.filter(g => g.category === cat.label && g.current >= g.target).length}/
+                        {goals.filter(g => g.category === cat.label).length || '0'}
+                      </p>
+                      <p className="text-xs text-gray-500">{cat.label}</p>
                     </div>
-                    <p className="text-lg font-bold">
-                      {goals.filter(g => g.category === cat.label && g.current >= g.target).length}/
-                      {goals.filter(g => g.category === cat.label).length}
-                    </p>
-                    <p className="text-xs text-gray-500">{cat.label}</p>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
 
-              {/* Add goal button */}
+              {/* Header + add button */}
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-semibold text-lg">Your Goals</h2>
                 <button
@@ -171,9 +182,10 @@ export default function Goals() {
                       <h3 className="font-medium text-sm text-gray-300">New Goal</h3>
                       <input
                         autoFocus
-                        placeholder="Goal title e.g. Study 10 hours this week"
+                        placeholder="e.g. Study 10 hours this week"
                         value={newGoal.title}
                         onChange={e => setNewGoal(p => ({ ...p, title: e.target.value }))}
+                        onKeyDown={e => e.key === 'Enter' && addGoal()}
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/50"
                       />
                       <div className="grid grid-cols-3 gap-3">
@@ -192,7 +204,7 @@ export default function Goals() {
                           className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none"
                         />
                         <input
-                          placeholder="Unit (hrs, days...)"
+                          placeholder="Unit e.g. hrs"
                           value={newGoal.unit}
                           onChange={e => setNewGoal(p => ({ ...p, unit: e.target.value }))}
                           className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none"
@@ -210,6 +222,21 @@ export default function Goals() {
                   </motion.div>
                 )}
               </AnimatePresence>
+
+              {/* Empty state */}
+              {goals.length === 0 && !showAddGoal && (
+                <div className="text-center py-16 border border-dashed border-white/10 rounded-2xl">
+                  <Target size={36} className="text-gray-700 mx-auto mb-3" />
+                  <p className="text-gray-400 font-medium mb-1">No goals yet</p>
+                  <p className="text-sm text-gray-600 mb-4">Set goals to track your academic progress</p>
+                  <button
+                    onClick={() => setShowAddGoal(true)}
+                    className="text-sm text-blue-400 hover:text-blue-300 bg-blue-500/10 border border-blue-500/20 px-4 py-2 rounded-lg transition-all"
+                  >
+                    Add your first goal
+                  </button>
+                </div>
+              )}
 
               {/* Goals list */}
               <div className="space-y-4">
@@ -238,7 +265,6 @@ export default function Goals() {
                         </button>
                       </div>
 
-                      {/* Progress bar */}
                       <div className="mb-3">
                         <div className="flex justify-between text-xs text-gray-500 mb-1.5">
                           <span>{goal.category}</span>
@@ -255,8 +281,7 @@ export default function Goals() {
                         </div>
                       </div>
 
-                      {/* Progress controls */}
-                      {!done && (
+                      {!done ? (
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => updateProgress(goal.id, -1)}
@@ -272,9 +297,7 @@ export default function Goals() {
                             +
                           </button>
                         </div>
-                      )}
-
-                      {done && (
+                      ) : (
                         <div className="flex items-center gap-2 text-green-400 text-xs">
                           <CheckCircle size={12} />
                           Goal completed! 🎉
@@ -290,8 +313,6 @@ export default function Goals() {
           {/* ACHIEVEMENTS TAB */}
           {activeTab === 'achievements' && (
             <motion.div key="achievements" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-
-              {/* Summary */}
               <div className="bg-gradient-to-br from-yellow-500/10 to-orange-500/10 border border-yellow-500/20 rounded-2xl p-6 mb-6">
                 <div className="flex items-center gap-4">
                   <div className="w-14 h-14 rounded-2xl bg-yellow-500/20 flex items-center justify-center text-2xl">
@@ -300,7 +321,7 @@ export default function Goals() {
                   <div>
                     <h2 className="font-bold text-xl">{unlockedCount} Achievements Unlocked</h2>
                     <p className="text-gray-400 text-sm">{ACHIEVEMENTS.length - unlockedCount} more to unlock · Keep studying!</p>
-                    <div className="flex items-center gap-1 mt-1">
+                    <div className="flex items-center gap-2 mt-1">
                       <div className="h-1.5 bg-white/10 rounded-full overflow-hidden w-32">
                         <div
                           className="h-full bg-yellow-400 rounded-full transition-all"
@@ -313,7 +334,6 @@ export default function Goals() {
                 </div>
               </div>
 
-              {/* Achievements grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {ACHIEVEMENTS.map((achievement, i) => {
                   const unlocked = achievement.condition(user)

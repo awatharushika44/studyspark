@@ -175,7 +175,9 @@ export default function Landing() {
           className="max-w-2xl mx-auto text-center bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-white/10 rounded-3xl p-12"
         >
           <h2 className="text-4xl font-bold mb-4">Ready to transform your studies?</h2>
-          <p className="text-gray-400 mb-8">Join 10,000+ students already using StudySpark to reach their goals.</p>
+<p className="text-gray-400 mb-8">
+  Join students already using StudySpark to reach their academic goals.
+</p>
           <button onClick={() => navigate('/register')} className="flex items-center gap-2 bg-blue-500 hover:bg-blue-400 transition-colors px-8 py-3.5 rounded-xl font-semibold text-lg mx-auto">
             Get Started — It's Free <ArrowRight size={18} />
           </button>
