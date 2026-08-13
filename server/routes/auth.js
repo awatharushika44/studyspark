@@ -29,7 +29,7 @@ router.post('/register', async (req, res) => {
     res.status(201).json({
       token,
       user: {
-        id: user._id,
+        _id: user._id,
         name: user.name,
         email: user.email,
         xp: user.xp,
@@ -63,7 +63,7 @@ router.post('/login', async (req, res) => {
     res.json({
       token,
       user: {
-        id: user._id,
+        _id: user._id,
         name: user.name,
         email: user.email,
         xp: user.xp,
@@ -81,6 +81,7 @@ router.post('/login', async (req, res) => {
 router.get('/me', authMiddleware, async (req, res) => {
   res.json({ user: req.user })
 })
+
 // GET /api/auth/subjects
 router.get('/subjects', authMiddleware, async (req, res) => {
   try {
