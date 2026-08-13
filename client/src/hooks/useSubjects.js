@@ -1,31 +1,45 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { subjectsAPI } from '../services/api'
 
 export function useSubjects() {
   const { user } = useAuth()
+  const [subjects, setSubjects] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const getKey = () => `subjects_${user?._id || 'guest'}`
-
-  const [subjects, setSubjects] = useState(() => {
-    if (!user?._id) return []
-    const saved = localStorage.getItem(`subjects_${user._id}`)
-    return saved ? JSON.parse(saved) : []
-  })
-
-  useEffect(() => {
-    if (user?._id) {
-      const saved = localStorage.getItem(`subjects_${user._id}`)
-      setSubjects(saved ? JSON.parse(saved) : [])
+  const fetchSubjects = useCallback(async () => {
+    if (!user?._id) {
+      setSubjects([])
+      setLoading(false)
+      return
+    }
+    try {
+      const res = await subjectsAPI.get()
+      setSubjects(res.data.subjects || [])
+    } catch (err) {
+      console.error('Failed to fetch subjects:', err)
+      setSubjects([])
+    } finally {
+      setLoading(false)
     }
   }, [user?._id])
 
-  const save = (updated) => {
-    setSubjects(updated)
-    localStorage.setItem(getKey(), JSON.stringify(updated))
+  useEffect(() => {
+    fetchSubjects()
+  }, [fetchSubjects])
+
+  const save = async (updated) => {
+    setSubjects(updated) // optimistic update
+    try {
+      await subjectsAPI.update(updated)
+    } catch (err) {
+      console.error('Failed to save subjects:', err)
+      fetchSubjects() // revert to server truth if save fails
+    }
   }
 
   const addSubject = (name) => {
-    if (subjects.includes(name)) return
+    if (!name || subjects.includes(name)) return
     save([...subjects, name])
   }
 
@@ -33,5 +47,5 @@ export function useSubjects() {
     save(subjects.filter(s => s !== name))
   }
 
-  return { subjects, addSubject, removeSubject }
+  return { subjects, addSubject, removeSubject, loading }
 }
