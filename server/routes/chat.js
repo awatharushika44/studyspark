@@ -1,7 +1,31 @@
 const express = require('express')
+const { GoogleGenerativeAI } = require('@google/generative-ai')
 const authMiddleware = require('../middleware/auth')
 const router = express.Router()
 
+const genAI = process.env.GEMINI_API_KEY
+  ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+  : null
+
+// ---- AI-powered response ----
+async function getAIResponse(message, history = []) {
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
+
+  const systemPrompt = `You are StudySpark's AI Study Assistant — a friendly, encouraging, knowledgeable study coach for students. Give practical, evidence-based advice on studying, focus, memory techniques, exam stress, motivation, and time management. Keep responses concise (under 150 words), warm, and actionable. Use markdown bold (**text**) for key terms. Occasionally reference StudySpark features (Focus Mode, AI Planner, streaks) naturally where relevant, but don't force it every time.`
+
+  const chat = model.startChat({
+    history: [
+      { role: 'user', parts: [{ text: systemPrompt }] },
+      { role: 'model', parts: [{ text: 'Understood — I\'ll give warm, practical study advice, concise and actionable.' }] },
+      ...history,
+    ],
+  })
+
+  const result = await chat.sendMessage(message)
+  return result.response.text()
+}
+
+// ---- Rule-based fallback (used if no API key or AI call fails) ----
 const getStudyResponse = (message) => {
   const msg = message.toLowerCase()
 
@@ -46,8 +70,24 @@ router.post('/message', authMiddleware, async (req, res) => {
     if (!message?.trim()) {
       return res.status(400).json({ message: 'Message is required' })
     }
-    const reply = getStudyResponse(message)
-    res.json({ reply })
+
+    let reply, source
+
+    if (genAI) {
+      try {
+        reply = await getAIResponse(message)
+        source = 'ai'
+      } catch (aiErr) {
+        console.error('AI chat failed, falling back to rule-based:', aiErr.message)
+        reply = getStudyResponse(message)
+        source = 'rule-based-fallback'
+      }
+    } else {
+      reply = getStudyResponse(message)
+      source = 'rule-based-no-key'
+    }
+
+    res.json({ reply, source })
   } catch (err) {
     console.error('CHAT ERROR:', err.message)
     res.status(500).json({ message: 'Failed to get response' })
