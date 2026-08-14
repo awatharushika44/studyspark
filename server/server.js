@@ -16,6 +16,10 @@ const allowedOrigins = [
   process.env.CLIENT_URL
 ].filter(Boolean)
 
+// Matches any Vercel preview deployment for this project, e.g.
+// https://studyspark-pxx7gtvhz-arundathi122.vercel.app
+const vercelPreviewRegex = /^https:\/\/studyspark-[a-z0-9]+-arundathi122\.vercel\.app$/
+
 app.use(
   cors({
     origin: function (origin, callback) {
@@ -26,8 +30,8 @@ app.use(
         return callback(null, true)
       }
 
-      // Allow localhost and production frontend
-      if (allowedOrigins.includes(origin)) {
+      // Allow localhost, production frontend, and Vercel previews
+      if (allowedOrigins.includes(origin) || vercelPreviewRegex.test(origin)) {
         return callback(null, true)
       }
 
