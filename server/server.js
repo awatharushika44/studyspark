@@ -16,9 +16,11 @@ const allowedOrigins = [
   process.env.CLIENT_URL
 ].filter(Boolean)
 
-// Matches any Vercel preview deployment for this project, e.g.
+// Matches any Vercel deployment for this project under your account, e.g.
 // https://studyspark-pxx7gtvhz-arundathi122.vercel.app
-const vercelPreviewRegex = /^https:\/\/studyspark-[a-z0-9]+-arundathi122\.vercel\.app$/
+// https://studyspark-git-main-arundathi122.vercel.app
+// https://studyspark-jade.vercel.app
+const vercelPreviewRegex = /^https:\/\/studyspark-[a-z0-9-]+-arundathi122\.vercel\.app$/
 
 app.use(
   cors({
