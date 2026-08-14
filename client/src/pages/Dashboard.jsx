@@ -12,13 +12,7 @@ import {
   Tooltip, ResponsiveContainer, RadialBarChart, RadialBar
 } from 'recharts'
 import { useSubjects } from '../hooks/useSubjects'
-
-const studyData = [
-  { day: 'Mon', hours: 0 }, { day: 'Tue', hours: 0 },
-  { day: 'Wed', hours: 0 }, { day: 'Thu', hours: 0 },
-  { day: 'Fri', hours: 0 }, { day: 'Sat', hours: 0 },
-  { day: 'Sun', hours: 0 },
-]
+import { analyticsAPI } from '../services/api'
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -58,11 +52,32 @@ export default function Dashboard() {
   const [showAddSubject, setShowAddSubject] = useState(false)
   const [newSubject, setNewSubject] = useState('')
 
+  // Weekly study analytics — from backend
+  const [weeklyData, setWeeklyData] = useState([
+    { day: 'Mon', hours: 0 }, { day: 'Tue', hours: 0 },
+    { day: 'Wed', hours: 0 }, { day: 'Thu', hours: 0 },
+    { day: 'Fri', hours: 0 }, { day: 'Sat', hours: 0 },
+    { day: 'Sun', hours: 0 },
+  ])
+  const [weekHours, setWeekHours] = useState(0)
+
   // Load tasks on mount
   useEffect(() => {
     if (user?._id) {
       const saved = localStorage.getItem(`tasks_${user._id}`)
       if (saved) setTaskList(JSON.parse(saved))
+    }
+  }, [user?._id])
+
+  // Load analytics summary on mount
+  useEffect(() => {
+    if (user?._id) {
+      analyticsAPI.getSummary()
+        .then(res => {
+          setWeeklyData(res.data.weeklyData)
+          setWeekHours(res.data.weekHours)
+        })
+        .catch(err => console.error('Failed to load analytics:', err))
     }
   }, [user?._id])
 
@@ -221,7 +236,7 @@ export default function Dashboard() {
           {[
             { icon: Flame, label: 'Current Streak', value: `${user?.streak || 0} days`, color: 'text-orange-400', bg: 'bg-orange-500/10' },
             { icon: Zap, label: 'XP Points', value: `${user?.xp || 0} XP`, color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
-            { icon: Clock, label: 'Hours This Week', value: '0 hrs', color: 'text-blue-400', bg: 'bg-blue-500/10' },
+            { icon: Clock, label: 'Hours This Week', value: `${weekHours} hrs`, color: 'text-blue-400', bg: 'bg-blue-500/10' },
             { icon: CheckCircle, label: 'Tasks Done', value: `${completedTasks}/${totalTasks}`, color: 'text-green-400', bg: 'bg-green-500/10' },
           ].map((stat, i) => (
             <motion.div key={stat.label} custom={i} initial="hidden" animate="visible" variants={fadeUp}
@@ -252,7 +267,7 @@ export default function Dashboard() {
               </div>
             </div>
             <ResponsiveContainer width="100%" height={180}>
-              <AreaChart data={studyData}>
+              <AreaChart data={weeklyData}>
                 <defs>
                   <linearGradient id="colorHours" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
