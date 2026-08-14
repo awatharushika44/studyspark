@@ -1,31 +1,63 @@
 const express = require('express')
-const { GoogleGenerativeAI } = require('@google/generative-ai')
+const { GoogleGenAI } = require('@google/genai')
 const authMiddleware = require('../middleware/auth')
+
 const router = express.Router()
 
-const genAI = process.env.GEMINI_API_KEY
-  ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+// ============================================
+// GEMINI CLIENT
+// ============================================
+
+const ai = process.env.GEMINI_API_KEY
+  ? new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY
+    })
   : null
 
-// ---- AI-powered response ----
-async function getAIResponse(message, history = []) {
-  const model = genAI.getGenerativeModel({ model: 'gemini-3.7-flash' })
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
-  const systemPrompt = `You are StudySpark's AI Study Assistant — a friendly, encouraging, knowledgeable study coach for students. Give practical, evidence-based advice on studying, focus, memory techniques, exam stress, motivation, and time management. Keep responses concise (under 150 words), warm, and actionable. Use markdown bold (**text**) for key terms. Occasionally reference StudySpark features (Focus Mode, AI Planner, streaks) naturally where relevant, but don't force it every time.`
 
-  const chat = model.startChat({
-    history: [
-      { role: 'user', parts: [{ text: systemPrompt }] },
-      { role: 'model', parts: [{ text: 'Understood — I\'ll give warm, practical study advice, concise and actionable.' }] },
-      ...history,
-    ],
-  })
+// ============================================
+// AI CHAT RESPONSE (with retry on transient errors)
+// ============================================
 
-  const result = await chat.sendMessage(message)
-  return result.response.text()
+async function getAIResponse(message, retries = 1) {
+  const prompt = `You are StudySpark's AI Study Assistant — a friendly, encouraging, knowledgeable study coach for students. Give practical, evidence-based advice on studying, focus, memory techniques, exam stress, motivation, and time management. Keep responses concise (under 150 words), warm, and actionable. Use markdown bold (**text**) for key terms. Occasionally reference StudySpark features (Focus Mode, AI Planner, streaks) naturally where relevant, but don't force it every time.
+
+Student's message: ${message}`
+
+  try {
+    const interaction = await ai.interactions.create({
+      model: 'gemini-3.6-flash',
+      input: prompt
+    })
+
+    console.log('✅ Gemini chat response received')
+
+    return interaction.output_text.trim()
+
+  } catch (err) {
+    const isTransient =
+      err.message?.includes('503') ||
+      err.message?.includes('overloaded') ||
+      err.message?.includes('high demand') ||
+      err.message?.includes('UNAVAILABLE')
+
+    if (isTransient && retries > 0) {
+      console.log(`⏳ Gemini busy, retrying chat in 2s... (${retries} retr${retries === 1 ? 'y' : 'ies'} left)`)
+      await sleep(2000)
+      return getAIResponse(message, retries - 1)
+    }
+
+    throw err
+  }
 }
 
-// ---- Rule-based fallback (used if no API key or AI call fails) ----
+
+// ============================================
+// RULE-BASED FALLBACK
+// ============================================
+
 const getStudyResponse = (message) => {
   const msg = message.toLowerCase()
 
@@ -64,30 +96,47 @@ const getStudyResponse = (message) => {
   return `Great question! Here's what I know about that:\n\nStudying effectively comes down to three fundamentals:\n\n**1. Active over passive** — doing problems, teaching others, and self-testing beat re-reading every time.\n\n**2. Consistency over intensity** — 1 hour daily for 7 days beats 7 hours on one day.\n\n**3. Sleep and breaks are part of studying** — not breaks from it.\n\nCan you tell me more specifically what subject or challenge you're facing? I can give you a more targeted answer! 📚`
 }
 
+
+// ============================================
+// POST /api/chat/message
+// ============================================
+
 router.post('/message', authMiddleware, async (req, res) => {
   try {
     const { message } = req.body
+
     if (!message?.trim()) {
       return res.status(400).json({ message: 'Message is required' })
     }
 
-    let reply, source
+    let reply
+    let source
 
-    if (genAI) {
+    if (ai) {
       try {
+        console.log('🤖 Generating AI chat response with Gemini...')
+
         reply = await getAIResponse(message)
         source = 'ai'
+
+        console.log('🎉 Gemini chat succeeded!')
+
       } catch (aiErr) {
-        console.error('AI chat failed, falling back to rule-based:', aiErr.message)
+        console.error('❌ AI chat failed after retry, falling back to rule-based:', aiErr.message)
+
         reply = getStudyResponse(message)
         source = 'rule-based-fallback'
       }
+
     } else {
+      console.warn('⚠️ GEMINI_API_KEY is missing')
+
       reply = getStudyResponse(message)
       source = 'rule-based-no-key'
     }
 
     res.json({ reply, source })
+
   } catch (err) {
     console.error('CHAT ERROR:', err.message)
     res.status(500).json({ message: 'Failed to get response' })
