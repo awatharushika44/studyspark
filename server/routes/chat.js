@@ -9,7 +9,7 @@ const genAI = process.env.GEMINI_API_KEY
 
 // ---- AI-powered response ----
 async function getAIResponse(message, history = []) {
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
+  const model = genAI.getGenerativeModel({ model: 'gemini-3.7-flash' })
 
   const systemPrompt = `You are StudySpark's AI Study Assistant — a friendly, encouraging, knowledgeable study coach for students. Give practical, evidence-based advice on studying, focus, memory techniques, exam stress, motivation, and time management. Keep responses concise (under 150 words), warm, and actionable. Use markdown bold (**text**) for key terms. Occasionally reference StudySpark features (Focus Mode, AI Planner, streaks) naturally where relevant, but don't force it every time.`
 
