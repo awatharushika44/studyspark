@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Brain, Calendar, Zap, BarChart2, Shield, Trophy, ArrowRight, Sparkles } from 'lucide-react'
+import { authAPI } from '../services/api'
 
 const features = [
   { icon: Brain, title: 'AI Study Planner', desc: 'Generates a personalized schedule based on your subjects, exam dates and energy levels.', color: 'bg-blue-500/10 text-blue-400' },
@@ -32,6 +33,21 @@ const fadeUp = {
 export default function Landing() {
   const navigate = useNavigate()
 
+  const handleTryDemo = async () => {
+    try {
+      const res = await authAPI.login({
+        email: 'demo@studyspark.com',
+        password: 'Demo1234!'
+      })
+      localStorage.setItem('token', res.data.token)
+      // Force page reload to update AuthContext
+      window.location.href = '/dashboard'
+    } catch (err) {
+      console.error('Demo login failed:', err)
+      alert('Demo account not available. Try again later.')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-950 text-white">
 
@@ -50,6 +66,12 @@ export default function Landing() {
             <a href="#stats" className="hover:text-white transition-colors">Stats</a>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={handleTryDemo}
+              className="text-sm text-purple-400 hover:text-purple-300 transition-colors px-4 py-2 border border-purple-500/20 hover:border-purple-500/40 rounded-lg"
+            >
+              👀 Try Demo
+            </button>
             <button onClick={() => navigate('/login')} className="text-sm text-gray-400 hover:text-white transition-colors px-4 py-2">
               Login
             </button>
@@ -96,8 +118,11 @@ export default function Landing() {
             <button onClick={() => navigate('/register')} className="flex items-center gap-2 bg-blue-500 hover:bg-blue-400 transition-colors px-8 py-3.5 rounded-xl font-semibold text-lg">
               Start for Free <ArrowRight size={18} />
             </button>
-            <button onClick={() => navigate('/login')} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors px-8 py-3.5 rounded-xl border border-white/10 hover:border-white/20 text-lg">
-              See Demo
+            <button
+              onClick={handleTryDemo}
+              className="flex items-center gap-2 text-gray-300 hover:text-white transition-colors px-8 py-3.5 rounded-xl border border-white/10 hover:border-purple-500/40 hover:bg-purple-500/5 text-lg"
+            >
+              👀 Try Demo — No signup needed
             </button>
           </motion.div>
 
@@ -106,7 +131,7 @@ export default function Landing() {
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}
             className="mt-16 flex flex-wrap justify-center gap-3"
           >
-            {['🔥 14 day streak', '⚡ Focus Mode', '🧠 AI Schedule', '🏆 Level 7', '📊 Analytics'].map((badge) => (
+            {['🔥 14 day streak', '⚡ Focus Mode', '🧠 AI Schedule', '🏆 Level 5', '📊 Analytics'].map((badge) => (
               <span key={badge} className="text-sm bg-white/5 border border-white/10 rounded-full px-4 py-1.5 text-gray-300">
                 {badge}
               </span>
@@ -175,12 +200,17 @@ export default function Landing() {
           className="max-w-2xl mx-auto text-center bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-white/10 rounded-3xl p-12"
         >
           <h2 className="text-4xl font-bold mb-4">Ready to transform your studies?</h2>
-<p className="text-gray-400 mb-8">
-  Join students already using StudySpark to reach their academic goals.
-</p>
-          <button onClick={() => navigate('/register')} className="flex items-center gap-2 bg-blue-500 hover:bg-blue-400 transition-colors px-8 py-3.5 rounded-xl font-semibold text-lg mx-auto">
-            Get Started — It's Free <ArrowRight size={18} />
-          </button>
+          <p className="text-gray-400 mb-8">
+            Join students already using StudySpark to reach their academic goals.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button onClick={() => navigate('/register')} className="flex items-center gap-2 bg-blue-500 hover:bg-blue-400 transition-colors px-8 py-3.5 rounded-xl font-semibold text-lg mx-auto">
+              Get Started — It's Free <ArrowRight size={18} />
+            </button>
+            <button onClick={handleTryDemo} className="flex items-center gap-2 border border-white/10 hover:border-purple-500/40 transition-colors px-8 py-3.5 rounded-xl text-gray-300 hover:text-white text-lg mx-auto">
+              👀 Try Demo
+            </button>
+          </div>
         </motion.div>
       </section>
 
