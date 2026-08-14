@@ -1,5 +1,4 @@
 const mongoose = require('mongoose')
-const bcrypt = require('bcryptjs')
 const dotenv = require('dotenv')
 
 dotenv.config()
@@ -29,12 +28,13 @@ async function seed() {
       console.log('🗑️  Removed old demo account')
     }
 
-    // Create demo user
-    const hashedPassword = await bcrypt.hash(DEMO_PASSWORD, 10)
+    // Create demo user — pass the PLAIN password.
+    // The pre('save') hook on the User model hashes it automatically.
+    // Do NOT hash it manually here, or it gets hashed twice and login will always fail.
     const demoUser = await User.create({
       name: 'Alex Johnson',
       email: DEMO_EMAIL,
-      password: hashedPassword,
+      password: DEMO_PASSWORD,
       xp: 4850,
       level: 5,
       streak: 14,
