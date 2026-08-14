@@ -18,13 +18,19 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
 
 // ============================================
-// AI CHAT RESPONSE (with retry on transient errors)
+// AI CHAT RESPONSE (with history + retry)
 // ============================================
 
-async function getAIResponse(message, retries = 1) {
+async function getAIResponse(message, history = [], retries = 1) {
+  // Convert the history array into a readable transcript,
+  // so Gemini can literally read the back-and-forth like a script.
+  const historyText = history
+    .map(h => `${h.role === 'model' ? 'Assistant' : 'Student'}: ${h.text}`)
+    .join('\n\n')
+
   const prompt = `You are StudySpark's AI Study Assistant — a friendly, encouraging, knowledgeable study coach for students. Give practical, evidence-based advice on studying, focus, memory techniques, exam stress, motivation, and time management. Keep responses concise (under 150 words), warm, and actionable. Use markdown bold (**text**) for key terms. Occasionally reference StudySpark features (Focus Mode, AI Planner, streaks) naturally where relevant, but don't force it every time.
 
-Student's message: ${message}`
+${historyText ? `Here is the conversation so far:\n\n${historyText}\n\n` : ''}Now respond to the student's latest message: ${message}`
 
   try {
     const interaction = await ai.interactions.create({
@@ -46,7 +52,7 @@ Student's message: ${message}`
     if (isTransient && retries > 0) {
       console.log(`⏳ Gemini busy, retrying chat in 2s... (${retries} retr${retries === 1 ? 'y' : 'ies'} left)`)
       await sleep(2000)
-      return getAIResponse(message, retries - 1)
+      return getAIResponse(message, history, retries - 1)
     }
 
     throw err
@@ -103,7 +109,7 @@ const getStudyResponse = (message) => {
 
 router.post('/message', authMiddleware, async (req, res) => {
   try {
-    const { message } = req.body
+    const { message, history } = req.body
 
     if (!message?.trim()) {
       return res.status(400).json({ message: 'Message is required' })
@@ -116,7 +122,7 @@ router.post('/message', authMiddleware, async (req, res) => {
       try {
         console.log('🤖 Generating AI chat response with Gemini...')
 
-        reply = await getAIResponse(message)
+        reply = await getAIResponse(message, history || [])
         source = 'ai'
 
         console.log('🎉 Gemini chat succeeded!')

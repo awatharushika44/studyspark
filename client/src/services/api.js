@@ -25,9 +25,8 @@ export const focusAPI = {
 }
 
 export const chatAPI = {
-  sendMessage: (message) => api.post('/api/chat/message', { message }),
+  sendMessage: (message, history = []) => api.post('/api/chat/message', { message, history }),
 }
-
 export const analyticsAPI = {
   getSummary: () => api.get('/api/analytics/summary'),
 }

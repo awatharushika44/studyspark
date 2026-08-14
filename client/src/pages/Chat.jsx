@@ -43,12 +43,23 @@ export default function Chat() {
     const msg = text || input.trim()
     if (!msg || loading) return
 
+    // Build history from the messages that already exist,
+    // BEFORE we add the new user message to state.
+    // Only the last 10 messages are sent to keep requests fast and cheap —
+    // Gemini just needs recent context, not the entire conversation from the start.
+    const historyForAPI = messages
+      .slice(-10)
+      .map(m => ({
+        role: m.role === 'ai' ? 'model' : 'user',
+        text: m.text,
+      }))
+
     setInput('')
     setMessages(prev => [...prev, { id: Date.now(), role: 'user', text: msg }])
     setLoading(true)
 
     try {
-      const res = await chatAPI.sendMessage(msg)
+      const res = await chatAPI.sendMessage(msg, historyForAPI)
       setMessages(prev => [...prev, { id: Date.now() + 1, role: 'ai', text: res.data.reply }])
     } catch {
       setMessages(prev => [...prev, {
