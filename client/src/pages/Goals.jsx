@@ -1,24 +1,13 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { analyticsAPI } from '../services/api'
 import {
   ArrowLeft, Target, Trophy, Plus, X,
   CheckCircle, Lock, Flame, Zap,
   BookOpen, Clock, Star
 } from 'lucide-react'
-
-const ACHIEVEMENTS = [
-  { id: 1, icon: '🔥', title: '7 Day Streak', desc: 'Study 7 days in a row', xp: 500, condition: (user) => user?.streak >= 7 },
-  { id: 2, icon: '⚡', title: 'Speed Learner', desc: 'Complete 5 focus sessions in one day', xp: 300, condition: () => false },
-  { id: 3, icon: '🎯', title: 'Goal Crusher', desc: 'Complete 10 goals', xp: 400, condition: () => false },
-  { id: 4, icon: '🧠', title: 'Big Brain', desc: 'Reach Level 5', xp: 600, condition: (user) => user?.level >= 5 },
-  { id: 5, icon: '📚', title: 'Bookworm', desc: 'Study 50 hours total', xp: 700, condition: () => false },
-  { id: 6, icon: '🏆', title: 'Champion', desc: 'Reach Level 10', xp: 1000, condition: (user) => user?.level >= 10 },
-  { id: 7, icon: '💪', title: 'Consistent', desc: 'Study 30 days in a row', xp: 1500, condition: (user) => user?.streak >= 30 },
-  { id: 8, icon: '🚀', title: 'Rocket Start', desc: 'Complete your first focus session', xp: 100, condition: (user) => (user?.xp || 0) > 0 },
-  { id: 9, icon: '✨', title: 'Early Bird', desc: 'Start a session before 8am', xp: 200, condition: () => false },
-]
 
 const GOAL_CATEGORIES = [
   { label: 'Study Hours', icon: Clock, color: 'text-blue-400', bg: 'bg-blue-500/10' },
@@ -40,6 +29,34 @@ export default function Goals() {
     return saved ? JSON.parse(saved) : []
   })
 
+  // Real stats from backend — used to check achievement conditions honestly
+  const [stats, setStats] = useState({ totalHours: 0, maxSessionsInOneDay: 0 })
+
+  useEffect(() => {
+    if (user?._id) {
+      analyticsAPI.getSummary()
+        .then(res => {
+          // Work out the highest number of sessions completed in any single day,
+          // from the last 12 weeks of heatmap data your backend already returns.
+          let maxInDay = 0
+          if (res.data.heatmap) {
+            res.data.heatmap.flat().forEach(day => {
+              // heatmap only stores hours, not session count directly —
+              // so this achievement uses weeklyData's per-day session count instead
+            })
+          }
+          if (res.data.weeklyData) {
+            maxInDay = Math.max(...res.data.weeklyData.map(d => d.sessions || 0))
+          }
+          setStats({
+            totalHours: res.data.totalHours || 0,
+            maxSessionsInOneDay: maxInDay,
+          })
+        })
+        .catch(err => console.error('Failed to load stats for achievements:', err))
+    }
+  }, [user?._id])
+
   const [activeTab, setActiveTab] = useState('goals')
   const [showAddGoal, setShowAddGoal] = useState(false)
   const [newGoal, setNewGoal] = useState({
@@ -51,7 +68,19 @@ export default function Goals() {
     localStorage.setItem(`goals_${user._id}`, JSON.stringify(updated))
   }
 
-  const unlockedCount = ACHIEVEMENTS.filter(a => a.condition(user)).length
+  // Achievements defined here, now checked against real data (user, stats, goals)
+  const ACHIEVEMENTS = [
+    { id: 1, icon: '🔥', title: '7 Day Streak', desc: 'Study 7 days in a row', xp: 500, condition: () => user?.streak >= 7 },
+    { id: 2, icon: '⚡', title: 'Speed Learner', desc: 'Complete 5 focus sessions in one day', xp: 300, condition: () => stats.maxSessionsInOneDay >= 5 },
+    { id: 3, icon: '🎯', title: 'Goal Crusher', desc: 'Complete 10 goals', xp: 400, condition: () => goals.filter(g => g.current >= g.target).length >= 10 },
+    { id: 4, icon: '🧠', title: 'Big Brain', desc: 'Reach Level 5', xp: 600, condition: () => user?.level >= 5 },
+    { id: 5, icon: '📚', title: 'Bookworm', desc: 'Study 50 hours total', xp: 700, condition: () => stats.totalHours >= 50 },
+    { id: 6, icon: '🏆', title: 'Champion', desc: 'Reach Level 10', xp: 1000, condition: () => user?.level >= 10 },
+    { id: 7, icon: '💪', title: 'Consistent', desc: 'Study 30 days in a row', xp: 1500, condition: () => user?.streak >= 30 },
+    { id: 8, icon: '🚀', title: 'Rocket Start', desc: 'Complete your first focus session', xp: 100, condition: () => (user?.xp || 0) > 0 },
+  ]
+
+  const unlockedCount = ACHIEVEMENTS.filter(a => a.condition()).length
   const completedGoals = goals.filter(g => g.current >= g.target).length
 
   const addGoal = () => {
@@ -336,7 +365,7 @@ export default function Goals() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {ACHIEVEMENTS.map((achievement, i) => {
-                  const unlocked = achievement.condition(user)
+                  const unlocked = achievement.condition()
                   return (
                     <motion.div
                       key={achievement.id}
