@@ -23,49 +23,38 @@ Built and deployed solo, end-to-end — architecture, auth, AI integration, and 
 
 ## 🛠️ Local development
 
-
-
 ```bash
+# Clone the repository
 git clone https://github.com/awatharushika44/studyspark.git
 cd studyspark
-```
 
 
-```bash
+# Backend
 cd server
 npm install
-```
 
-Create a `.env` file:
 
-```env
+# Create a .env file — see below
+npm run dev
+
+
+# Frontend (in a new terminal)
+cd client
+npm install
+npm run dev
+
+server/.env
+
 PORT=5000
 MONGO_URI=your_mongodb_connection_string
 JWT_SECRET=your_jwt_secret
 CLIENT_URL=http://localhost:5173
 GEMINI_API_KEY=your_gemini_api_key
-```
 
-Then run:
+client/.env
 
-```bash
-npm run dev
-```
-
-### Frontend
-
-Open a new terminal:
-
-```bash
-cd client
-npm install
-npm run dev
-```
-
-
-```env
 VITE_API_URL=http://localhost:5000
-```
+
 
 ## 📁 Project structure
 
