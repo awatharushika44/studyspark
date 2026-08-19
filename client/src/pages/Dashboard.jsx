@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Brain, Zap, Flame, Clock, BookOpen,
   TrendingUp, CheckCircle, Plus, LogOut, Sparkles,
-  Target, Calendar, BarChart2, MessageSquare, X
+  Target, Calendar, BarChart2, MessageSquare, X, Menu
 } from 'lucide-react'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -41,6 +41,7 @@ export default function Dashboard() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('overview')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Tasks — persisted per user
   const [taskList, setTaskList] = useState([])
@@ -169,20 +170,57 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-950 text-white flex">
 
-      {/* SIDEBAR */}
-      <aside className="w-64 border-r border-white/5 flex flex-col p-6 fixed h-full overflow-y-auto">
-        <div className="flex items-center gap-2 mb-10">
+      {/* MOBILE TOP BAR - only visible below md breakpoint */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 h-16 bg-gray-950/95 backdrop-blur-md border-b border-white/5 flex items-center justify-between px-4">
+        <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">
             <Sparkles size={16} className="text-white" />
           </div>
           <span className="font-bold text-lg">StudySpark</span>
+        </div>
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center"
+        >
+          <Menu size={20} />
+        </button>
+      </div>
+
+      {/* MOBILE OVERLAY - dims background when sidebar is open */}
+      {sidebarOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/60 z-40"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* SIDEBAR */}
+      <aside className={`w-64 border-r border-white/5 flex flex-col p-6 fixed h-full overflow-y-auto z-50 bg-gray-950 transition-transform duration-300
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}
+      >
+        <div className="flex items-center justify-between mb-10">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">
+              <Sparkles size={16} className="text-white" />
+            </div>
+            <span className="font-bold text-lg">StudySpark</span>
+          </div>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="md:hidden w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center"
+          >
+            <X size={16} />
+          </button>
         </div>
 
         <nav className="flex flex-col gap-1 flex-1">
           {navItems.map(({ icon: Icon, label, tab, path }) => (
             <button
               key={tab}
-              onClick={() => path ? navigate(path) : setActiveTab(tab)}
+              onClick={() => {
+                path ? navigate(path) : setActiveTab(tab)
+                setSidebarOpen(false)
+              }}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
                 activeTab === tab
                   ? 'bg-blue-500/10 text-blue-400 font-medium'
@@ -217,7 +255,7 @@ export default function Dashboard() {
       </aside>
 
       {/* MAIN CONTENT */}
-      <main className="ml-64 flex-1 p-8">
+      <main className="md:ml-64 flex-1 p-4 pt-20 md:p-8 md:pt-8">
 
         {/* Header */}
         <motion.div initial="hidden" animate="visible" variants={fadeUp} className="mb-8">
@@ -494,4 +532,5 @@ export default function Dashboard() {
       </main>
     </div>
   )
+
 }
