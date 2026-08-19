@@ -1,27 +1,20 @@
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Brain, Calendar, Zap, BarChart2, Shield, Trophy, ArrowRight, Sparkles } from 'lucide-react'
+import { Brain, Calendar, Zap, BarChart2, Trophy, MessageSquare, ArrowRight, Sparkles } from 'lucide-react'
 import { authAPI } from '../services/api'
 
 const features = [
-  { icon: Brain, title: 'AI Study Planner', desc: 'Generates a personalized schedule based on your subjects, exam dates and energy levels.', color: 'bg-blue-500/10 text-blue-400' },
-  { icon: Calendar, title: 'Smart Scheduling', desc: 'Automatically adjusts your plan when you miss sessions. Stays balanced, always.', color: 'bg-purple-500/10 text-purple-400' },
-  { icon: Zap, title: 'Focus Mode', desc: 'Distraction-free study sessions with built-in Pomodoro timer and XP rewards.', color: 'bg-yellow-500/10 text-yellow-400' },
-  { icon: BarChart2, title: 'Analytics Dashboard', desc: 'Track study hours, streaks, and performance patterns with beautiful charts.', color: 'bg-green-500/10 text-green-400' },
-  { icon: Shield, title: 'Burnout Detection', desc: 'AI monitors your workload and alerts you before you hit exhaustion.', color: 'bg-red-500/10 text-red-400' },
-  { icon: Trophy, title: 'Gamification', desc: 'Earn XP, unlock badges, and level up as you complete your study goals.', color: 'bg-orange-500/10 text-orange-400' },
-]
-
-const stats = [
-  { value: '10,000+', label: 'Students' },
-  { value: '94%', label: 'Grade Improvement' },
-  { value: '2.4x', label: 'Productivity Boost' },
-  { value: '4.9★', label: 'Average Rating' },
+  { icon: Brain, title: 'AI Study Planner', desc: 'Generates a personalized day-by-day schedule based on your subjects, exam dates, and difficulty — powered by Google Gemini.', color: 'bg-blue-500/10 text-blue-400' },
+  { icon: MessageSquare, title: 'AI Study Assistant', desc: 'A chatbot for study techniques, focus tips, and exam stress — with real conversation memory across your chat.', color: 'bg-purple-500/10 text-purple-400' },
+  { icon: Zap, title: 'Focus Mode', desc: 'Distraction-free study sessions with a built-in Pomodoro timer and XP rewards.', color: 'bg-yellow-500/10 text-yellow-400' },
+  { icon: BarChart2, title: 'Analytics Dashboard', desc: 'Real study-hour tracking pulled from your actual sessions, with a weekly chart and activity heatmap.', color: 'bg-green-500/10 text-green-400' },
+  { icon: Calendar, title: 'Smart Calendar', desc: 'Automatically syncs your exam dates and daily tasks — no manual re-entry.', color: 'bg-red-500/10 text-red-400' },
+  { icon: Trophy, title: 'Gamification', desc: 'Earn XP, build streaks, and level up as you complete real focus sessions.', color: 'bg-orange-500/10 text-orange-400' },
 ]
 
 const steps = [
   { num: '01', title: 'Set Your Goals', desc: 'Enter your subjects, exam dates and how many hours you can study per day.' },
-  { num: '02', title: 'AI Builds Your Plan', desc: 'Our AI generates a smart, balanced schedule optimized for your energy levels.' },
+  { num: '02', title: 'AI Builds Your Plan', desc: 'Gemini generates a study schedule based on exam urgency and subject difficulty.' },
   { num: '03', title: 'Study & Level Up', desc: 'Follow your plan, track progress, earn XP and hit your academic goals.' },
 ]
 
@@ -63,7 +56,6 @@ export default function Landing() {
           <div className="hidden md:flex items-center gap-8 text-sm text-gray-400">
             <a href="#features" className="hover:text-white transition-colors">Features</a>
             <a href="#how-it-works" className="hover:text-white transition-colors">How it works</a>
-            <a href="#stats" className="hover:text-white transition-colors">Stats</a>
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -107,8 +99,8 @@ export default function Landing() {
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }}
             className="text-xl text-gray-400 max-w-2xl mx-auto mb-10"
           >
-            StudySpark uses AI to build your perfect study schedule, track your progress,
-            detect burnout before it hits, and keep you motivated every single day.
+            StudySpark uses AI to build your study schedule, track your real progress,
+            and keep you motivated with a chat assistant and focus tools — every single day.
           </motion.p>
 
           <motion.div
@@ -131,24 +123,12 @@ export default function Landing() {
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}
             className="mt-16 flex flex-wrap justify-center gap-3"
           >
-            {['🔥 14 day streak', '⚡ Focus Mode', '🧠 AI Schedule', '🏆 Level 5', '📊 Analytics'].map((badge) => (
+            {['🔥 Streaks', '⚡ Focus Mode', '🧠 AI Schedule', '🏆 XP & Levels', '📊 Analytics'].map((badge) => (
               <span key={badge} className="text-sm bg-white/5 border border-white/10 rounded-full px-4 py-1.5 text-gray-300">
                 {badge}
               </span>
             ))}
           </motion.div>
-        </div>
-      </section>
-
-      {/* STATS */}
-      <section id="stats" className="py-12 border-y border-white/5 bg-white/[0.02]">
-        <div className="max-w-4xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8">
-          {stats.map((s, i) => (
-            <motion.div key={s.label} custom={i} initial="hidden" whileInView="visible" variants={fadeUp} viewport={{ once: true }} className="text-center">
-              <div className="text-3xl font-bold text-white mb-1">{s.value}</div>
-              <div className="text-sm text-gray-500">{s.label}</div>
-            </motion.div>
-          ))}
         </div>
       </section>
 
@@ -201,7 +181,7 @@ export default function Landing() {
         >
           <h2 className="text-4xl font-bold mb-4">Ready to transform your studies?</h2>
           <p className="text-gray-400 mb-8">
-            Join students already using StudySpark to reach their academic goals.
+            Try StudySpark and see if it fits how you study.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button onClick={() => navigate('/register')} className="flex items-center gap-2 bg-blue-500 hover:bg-blue-400 transition-colors px-8 py-3.5 rounded-xl font-semibold text-lg mx-auto">
