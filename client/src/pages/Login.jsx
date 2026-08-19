@@ -60,7 +60,7 @@ export default function Login() {
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  placeholder="you@university.com"
+                  placeholder="you@.com"
                   required
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pl-10 text-white placeholder-gray-600 text-sm focus:outline-none focus:border-blue-500/50 transition-colors"
                 />
